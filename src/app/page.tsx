@@ -80,14 +80,14 @@ export default function HomePage() {
             </Link>
 
             <a
-              href="#"
+              href="/about"
               className="text-green-300 hover:text-green-100 transition"
             >
-              ./github
+              ./about
             </a>
 
             <a
-              href="#"
+              href="/contact"
               className="text-green-300 hover:text-green-100 transition"
             >
               ./contact

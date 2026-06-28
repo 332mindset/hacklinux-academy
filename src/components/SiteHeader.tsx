@@ -16,6 +16,10 @@ const links = [
     href: "/profile",
     label: "./profile",
   },
+  {
+    href: "/about",
+    label: "./about",
+  },
 ];
 
 export function SiteHeader() {
