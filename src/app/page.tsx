@@ -37,9 +37,16 @@ export default function HomePage() {
               ПРАКТИКА
             </Link>
 
-            <div className="border border-green-500/30 rounded-xl px-6 py-4 text-green-200 font-mono">
-              status: waiting_for_student
-            </div>
+            <Link
+              href="/profile"
+              className="inline-flex items-center justify-center border border-green-500/40 px-8 py-4 rounded-xl text-lg font-bold text-green-200 hover:text-green-100 hover:border-green-300 transition"
+            >
+              ПРОФИЛЬ
+            </Link>
+          </div>
+
+          <div className="mt-6 border border-green-500/30 rounded-xl px-6 py-4 text-green-200 font-mono">
+            status: waiting_for_student
           </div>
         </div>
       </section>
@@ -63,6 +70,13 @@ export default function HomePage() {
               className="text-green-300 hover:text-green-100 transition"
             >
               ./practice
+            </Link>
+
+            <Link
+              href="/profile"
+              className="text-green-300 hover:text-green-100 transition"
+            >
+              ./profile
             </Link>
 
             <a

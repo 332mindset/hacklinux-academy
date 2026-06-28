@@ -1,7 +1,23 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import {
+  FormEvent,
+  KeyboardEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { getCourse } from "@/data/courses";
+import {
+  getCourseProgress,
+  isCourseCompleted,
+  removeCompletedLevel,
+  resetCourseProgress,
+  setCompletedLevel,
+  setCourseProgress,
+} from "@/lib/progress";
 
 type TerminalLine = {
   id: number;
@@ -18,9 +34,13 @@ export function TerminalSimulator({
 }: TerminalSimulatorProps) {
   const course = getCourse(level) ?? getCourse("beginner");
   const tasks = course?.tasks ?? [];
+  const courseSlug = course?.slug ?? "beginner";
 
   const [currentTaskIndex, setCurrentTaskIndex] = useState(0);
   const [input, setInput] = useState("");
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null);
+
   const [lines, setLines] = useState<TerminalLine[]>([
     {
       id: 1,
@@ -37,9 +57,58 @@ export function TerminalSimulator({
       text: "Служебные команды: help, clear.",
       type: "system",
     },
+    {
+      id: 4,
+      text: "История команд: используй стрелки ↑ и ↓.",
+      type: "system",
+    },
   ]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isCourseCompleted(courseSlug)) {
+      setCurrentTaskIndex(tasks.length);
+      setLines([
+        {
+          id: 1,
+          text: "Этот уровень уже был завершён.",
+          type: "success",
+        },
+        {
+          id: 2,
+          text: "Можно открыть результат, пройти уровень заново или выбрать другой уровень.",
+          type: "system",
+        },
+      ]);
+      return;
+    }
+
+    const savedProgress = getCourseProgress(courseSlug);
+    const safeProgress = Math.min(savedProgress, tasks.length);
+
+    setCurrentTaskIndex(safeProgress);
+
+    if (safeProgress > 0) {
+      setLines([
+        {
+          id: 1,
+          text: `Прогресс восстановлен. Продолжаем с задания ${safeProgress + 1}.`,
+          type: "system",
+        },
+        {
+          id: 2,
+          text: "Служебные команды: help, clear.",
+          type: "system",
+        },
+        {
+          id: 3,
+          text: "История команд: используй стрелки ↑ и ↓.",
+          type: "system",
+        },
+      ]);
+    }
+  }, [courseSlug, tasks.length]);
 
   const isFinished = currentTaskIndex >= tasks.length;
   const currentTask = isFinished ? null : tasks[currentTaskIndex];
@@ -67,6 +136,79 @@ export function TerminalSimulator({
     ]);
   }
 
+  function resetMission() {
+    resetCourseProgress(courseSlug);
+    removeCompletedLevel(courseSlug);
+
+    setCurrentTaskIndex(0);
+    setInput("");
+    setCommandHistory([]);
+    setHistoryIndex(null);
+    setLines([
+      {
+        id: 1,
+        text: "Mission Mode перезапущен. Начинаем уровень заново.",
+        type: "system",
+      },
+      {
+        id: 2,
+        text: "Подсказка: команды вводятся без символа $ в начале.",
+        type: "system",
+      },
+      {
+        id: 3,
+        text: "Служебные команды: help, clear.",
+        type: "system",
+      },
+      {
+        id: 4,
+        text: "История команд: используй стрелки ↑ и ↓.",
+        type: "system",
+      },
+    ]);
+
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (commandHistory.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+
+      const nextIndex =
+        historyIndex === null
+          ? commandHistory.length - 1
+          : Math.max(historyIndex - 1, 0);
+
+      setHistoryIndex(nextIndex);
+      setInput(commandHistory[nextIndex]);
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+
+      if (historyIndex === null) {
+        return;
+      }
+
+      const nextIndex = historyIndex + 1;
+
+      if (nextIndex >= commandHistory.length) {
+        setHistoryIndex(null);
+        setInput("");
+        return;
+      }
+
+      setHistoryIndex(nextIndex);
+      setInput(commandHistory[nextIndex]);
+    }
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -79,6 +221,9 @@ export function TerminalSimulator({
     if (!cleanInput) {
       return;
     }
+
+    setCommandHistory((previousHistory) => [...previousHistory, cleanInput]);
+    setHistoryIndex(null);
 
     const userCommand = normalizeCommand(cleanInput);
     const correctCommands = currentTask.correctCommands.map(normalizeCommand);
@@ -105,10 +250,14 @@ export function TerminalSimulator({
       addLine(`✅ ${currentTask.successText}`, "success");
 
       const nextTaskIndex = currentTaskIndex + 1;
+
       setCurrentTaskIndex(nextTaskIndex);
+      setCourseProgress(courseSlug, nextTaskIndex);
 
       if (nextTaskIndex >= tasks.length) {
+        setCompletedLevel(courseSlug);
         addLine("ACCESS GRANTED. Курс завершён.", "success");
+        addLine("Открой страницу результата для следующего шага.", "system");
       } else {
         addLine("Следующее задание загружено...", "system");
       }
@@ -149,9 +298,17 @@ export function TerminalSimulator({
               {currentTask.description}
             </p>
 
-            <div className="border border-green-500/20 rounded-xl p-4 bg-black text-sm text-green-200 font-mono">
-              input_required: true
+            <div className="border border-green-500/20 rounded-xl p-4 bg-black text-sm text-green-200 font-mono mb-4">
+              progress_saved: true
             </div>
+
+            <button
+              type="button"
+              onClick={resetMission}
+              className="w-full border border-red-500/50 text-red-300 px-5 py-3 rounded-xl font-bold hover:bg-red-500/10 transition"
+            >
+              Начать заново
+            </button>
           </>
         ) : (
           <>
@@ -162,16 +319,33 @@ export function TerminalSimulator({
             <h2 className="text-3xl font-bold mb-4">ACCESS GRANTED</h2>
 
             <p className="text-green-100 leading-7 mb-6">
-              Ты прошёл этот уровень. Можно вернуться к выбору уровней или
-              пройти другой курс.
+              Уровень завершён. Открой страницу результата, чтобы перейти
+              дальше.
             </p>
 
-            <a
-              href="/learn"
-              className="inline-flex border border-green-400 bg-green-400 text-black px-5 py-3 rounded-xl font-bold hover:bg-green-300 transition"
-            >
-              К уровням
-            </a>
+            <div className="flex flex-col gap-3">
+              <Link
+                href={`/result/${courseSlug}`}
+                className="text-center border border-green-400 bg-green-400 text-black px-5 py-3 rounded-xl font-bold hover:bg-green-300 transition"
+              >
+                Посмотреть результат
+              </Link>
+
+              <button
+                type="button"
+                onClick={resetMission}
+                className="border border-green-500/40 text-green-200 px-5 py-3 rounded-xl font-bold hover:border-green-300 hover:text-green-100 transition"
+              >
+                Пройти заново
+              </button>
+
+              <Link
+                href="/learn"
+                className="text-center border border-green-500/40 text-green-200 px-5 py-3 rounded-xl font-bold hover:border-green-300 hover:text-green-100 transition"
+              >
+                К уровням
+              </Link>
+            </div>
           </>
         )}
       </aside>
@@ -222,6 +396,7 @@ export function TerminalSimulator({
                 ref={inputRef}
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
+                onKeyDown={handleKeyDown}
                 autoFocus
                 className="flex-1 bg-transparent outline-none text-green-100 caret-green-400 min-w-0"
                 placeholder="введи команду..."

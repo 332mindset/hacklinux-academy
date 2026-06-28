@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CourseLevelCard } from "@/components/CourseLevelCard";
 import { courseList } from "@/data/courses";
 
 export default function LearnPage() {
@@ -18,42 +19,14 @@ export default function LearnPage() {
           </h1>
 
           <p className="text-green-200 text-lg max-w-3xl">
-            Начни с базовых команд или переходи к системному администрированию.
+            Уровни открываются постепенно. Сначала пройди новичка, потом средний,
+            потом высокий.
           </p>
         </header>
 
         <div className="grid md:grid-cols-3 gap-6">
           {courseList.map((course) => (
-            <article
-              key={course.slug}
-              className="border border-green-500/40 bg-black/85 rounded-2xl p-6 shadow-[0_0_35px_rgba(34,197,94,0.16)]"
-            >
-              <p className="font-mono text-sm text-green-300 mb-3">
-                {course.badge}
-              </p>
-
-              <h2 className="text-3xl font-bold mb-4">{course.shortTitle}</h2>
-
-              <p className="text-green-100 leading-7 mb-6">
-                {course.description}
-              </p>
-
-              <div className="flex flex-col gap-3">
-                <Link
-                  href={`/learn/${course.slug}/1`}
-                  className="text-center border border-green-400 bg-green-400 text-black px-5 py-3 rounded-xl font-bold hover:bg-green-300 transition"
-                >
-                  Теория
-                </Link>
-
-                <Link
-                  href={`/practice/${course.slug}`}
-                  className="text-center border border-green-500/40 px-5 py-3 rounded-xl text-green-200 hover:text-green-100 hover:border-green-300 transition"
-                >
-                  Практика
-                </Link>
-              </div>
-            </article>
+            <CourseLevelCard key={course.slug} course={course} />
           ))}
         </div>
 
